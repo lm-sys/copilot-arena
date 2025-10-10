@@ -37,7 +37,6 @@ from constants import (
 from src.privacy import PrivacySetting, privacy_aware_log
 from json.decoder import JSONDecodeError
 import tiktoken
-from src.scores import get_scores
 from amplitude import Amplitude, BaseEvent
 from pydantic import BaseModel, Field
 from typing import Optional
@@ -1484,45 +1483,14 @@ class FastAPIApp:
 
                 user_id = data.get("userId")
 
-                autocomplete_outcomes_collection_name = self.settings[
-                    self.FIREBASE_COLLECTIONS_KEY
-                ]["outcomes"]
-
-                start_time = time.time()
-                logger.info("Personal Ranking User Id: {}".format(user_id))
-
-                try:
-                    outcomes_df = self.firebase_client.get_autocomplete_outcomes(
-                        autocomplete_outcomes_collection_name, user_id=user_id
-                    )
-
-                    scores_over_time = get_scores(
-                        self.global_outcomes_df,
-                        outcomes_df,
-                        models=self.models,
-                        interval_size=20,
-                    )
-
-                    # Update cache with new scores
-                    self.user_scores_cache[user_id] = scores_over_time
-
-                except Exception as e:
-                    logger.error(f"Error getting scores for user {user_id}: {str(e)}")
-                    # Use cached scores if available
-                    if user_id in self.user_scores_cache:
-                        logger.info(f"Using cached scores for user {user_id}")
-                        scores_over_time = self.user_scores_cache[user_id]
-                    else:
-                        # If no cached data exists, re-raise the exception
-                        logger.error("Rate limited, but scores not cached")
-                        raise
-
-                end_time = time.time()
                 logger.info(
-                    f"Time taken to calculate personal ranking: {end_time - start_time:.2f} seconds"
+                    "User scores endpoint temporarily disabled; skipping Firebase fetch for user %s",
+                    user_id,
                 )
 
+                scores_over_time: list = []
                 response = JSONResponse(content=scores_over_time)
+                response.headers["x-leaderboard-disabled"] = "true"
                 return response
             except HTTPException:
                 raise
@@ -1571,10 +1539,13 @@ class FastAPIApp:
                     raise HTTPException(status_code=400, detail=error_msg)
 
                 user_id = data.get("userId")
-                user_vote_count = self.firebase_client.get_autocomplete_outcomes_count(
-                    self.settings[self.FIREBASE_COLLECTIONS_KEY]["outcomes"], user_id
+                logger.info(
+                    "User vote count endpoint temporarily disabled; skipping Firebase fetch for user %s",
+                    user_id,
                 )
-                response = JSONResponse(content={"voteCount": user_vote_count})
+
+                response = JSONResponse(content={"voteCount": 0})
+                response.headers["x-leaderboard-disabled"] = "true"
                 return response
             except HTTPException:
                 raise

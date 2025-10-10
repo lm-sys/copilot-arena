@@ -212,9 +212,14 @@ def test_user_scores(docker_compose):
         response.status_code == 200
     ), f"Expected status code 200, got {response.status_code}"
 
+    assert (
+        response.headers.get("x-leaderboard-disabled") == "true"
+    ), "Expected leaderboard disable header to be set"
+
     response_data = response.json()
-    # The response should be a dictionary containing model scores over time
+    # The response should be disabled and return an empty list
     assert isinstance(response_data, list), "Response should be a list"
+    assert response_data == [], "Expected disabled endpoint to return an empty list"
 
 
 if __name__ == "__main__":
